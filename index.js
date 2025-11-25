@@ -114,6 +114,7 @@ async function run() {
 
         const session = await stripe.checkout.sessions.retrieve(sessionId);
         console.log(sessionId, session);
+        const trackingId = generateTrackingId();
 
         if(session.payment_status === 'paid') {
          const id = session.metadata.parcelId;
@@ -122,7 +123,7 @@ async function run() {
          const update = {
             $set: {
                 paymentStatus: 'paid' ,
-                trackingId: generateTrackingId()
+                trackingId: trackingId
             }
          }
          const result = await parcelCollection.updateOne(query, update);
@@ -140,7 +141,11 @@ async function run() {
          }
          if(session.payment_status === 'paid') {
             const paymentResult = await paymentCollection.insertOne(payment);
-            res.send({success: true, modifyParcel: result, paymentInfo: paymentResult});
+            res.send({success: true,
+                modifyParcel: result,
+                trackingId: trackingId,
+                transactionId: session.payment_intent,
+                paymentInfo: paymentResult});
          }
         }
 
