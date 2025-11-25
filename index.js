@@ -111,9 +111,19 @@ async function run() {
     app.patch('/payment-success', async (req, res) => {
         const sessionId = req.query.session_id;
         
-
         const session = await stripe.checkout.sessions.retrieve(sessionId);
-        console.log(sessionId, session);
+        // console.log(sessionId, session);
+
+        const transactionId = session.payment_intent;
+        const query = { transactionId: transactionId };
+
+        const paymentExist = await paymentCollection.findOne(query);
+        if(paymentExist) {
+            return res.send({message: "Payment already exist", transactionId: transactionId,
+                trackingId: paymentExist.trackingId
+            });
+        }
+
         const trackingId = generateTrackingId();
 
         if(session.payment_status === 'paid') {
@@ -137,6 +147,7 @@ async function run() {
             currency: session.currency,
             paymentStatus: session.payment_status,
             paidAt: new Date(),
+            trackingId: trackingId
             
          }
          if(session.payment_status === 'paid') {
@@ -150,6 +161,17 @@ async function run() {
         }
 
         res.send({ sessionId: false});
+    });
+
+    app.get('/payments', async (req, res) =>{
+        const email = req.query.email;
+        const query = {}
+        if(email){
+            query.senderEmail = email;
+        }
+        const cursor = paymentCollection.find(query);
+        const result = await cursor.toArray();
+        res.send(result);
     })
 
     console.log("Connected to MongoDB server successfully!");
